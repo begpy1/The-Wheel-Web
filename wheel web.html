@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Wheel Web</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --accent: #e94560;
+            --wheel-color: #0f3460;
+            --text-color: #00ffcc;
+            --wheel-size: 500px;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .panel {
+            width: 320px;
+            background: rgba(15, 52, 96, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+        }
+
+        label { font-size: 0.8em; color: #bbb; font-weight: bold; }
+
+        textarea {
+            height: 120px;
+            background: #16213e;
+            color: #fff;
+            border: 1px solid var(--accent);
+            padding: 10px;
+            border-radius: 5px;
+            resize: none;
+            font-size: 14px;
+        }
+
+        .scene {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .marker {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, calc((var(--wheel-size) / -2) - 20px));
+            width: 0; height: 0; 
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 35px solid var(--accent);
+            z-index: 5;
+        }
+
+        .wheel {
+            width: var(--wheel-size);
+            height: var(--wheel-size);
+            border: 10px solid var(--wheel-color);
+            border-radius: 50%;
+            position: relative;
+            transition: transform 5s cubic-bezier(0.1, 0, 0.1, 1);
+            background-color: var(--wheel-color);
+            background-size: cover;
+            background-position: center;
+            overflow: hidden; /* Clips the image to a circle */
+        }
+
+        /* Overlay to make text readable over a custom wheel image */
+        .wheel-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%);
+            border-radius: 50%;
+        }
+
+        .divider {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 50%; height: 1px;
+            background: rgba(255,255,255,0.3);
+            transform-origin: left center;
+        }
+
+        .entry {
+            position: absolute;
+            left: 50%; top: 50%;
+            transform-origin: 0% 50%;
+            padding-left: 35px;
+            white-space: nowrap;
+            color: var(--text-color);
+            font-weight: bold;
+            text-transform: uppercase;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+
+        button, .file-input-label {
+            background: var(--accent);
+            color: white; border: none;
+            padding: 10px; cursor: pointer;
+            border-radius: 5px; font-weight: bold;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        input[type="file"] { display: none; }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn-remove { background: #444; }
+        .btn-remove:hover { background: #ff4d4d; }
+
+        input[type="color"], input[type="range"] { width: 100%; cursor: pointer; }
+
+        #winnerModal {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: white; color: #1a1a2e;
+            padding: 40px; border-radius: 20px;
+            text-align: center; z-index: 100;
+            box-shadow: 0 0 50px var(--accent);
+            transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #winnerModal.show { transform: translate(-50%, -50%) scale(1); }
+    </style>
+</head>
+<body>
+
+    <div id="winnerModal">
+        <h2 style="margin:0">Winner!</h2>
+        <h1 id="winnerName" style="color: #e94560; font-size: 3em; margin: 15px 0;">---</h1>
+        <div class="modal-buttons">
+            <button onclick="closeModal()">Close</button>
+            <button class="btn-remove" onclick="removeWinner()">Remove Element</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>🎡 Wheel Customizer</h3>
+        
+        <div class="control-group">
+            <label>1. Page Background (.jpg)</label>
+            <button onclick="document.getElementById('bgInput').click()">Upload Wallpaper</button>
+            <input type="file" id="bgInput" accept=".jpg,.jpeg">
+        </div>
+
+        <div class="control-group">
+            <label>2. Wheel Image (.jpg)</label>
+            <button onclick="document.getElementById('wheelImgInput').click()" style="background: #0f3460; border: 1px solid var(--accent);">Upload Wheel Center</button>
+            <input type="file" id="wheelImgInput" accept=".jpg,.jpeg">
+        </div>
+
+        <div class="control-group">
+            <label>Wheel Color (Fallback)</label>
+            <input type="color" id="wheelColor" value="#0f3460">
+        </div>
+
+        <div class="control-group">
+            <label>Text & Line Color</label>
+            <input type="color" id="textColor" value="#00ffcc">
+        </div>
+
+        <div class="control-group">
+            <label>Wheel Size</label>
+            <input type="range" id="sizeInput" min="200" max="850" value="500">
+        </div>
+
+        <div class="control-group">
+            <label>Elements (one per line):</label>
+            <textarea id="textInput">Element 1&#10;Element 2&#10;Element 3&#10;Element 4</textarea>
+            <small id="counter">Total: 4</small>
+        </div>
+        
+        <button onclick="updateWheel()">Update All Changes</button>
+        <button onclick="spinWheel()" style="background: #222; border: 1px solid var(--accent); margin-top: 10px;">SPIN!</button>
+    </div>
+
+    <div class="scene">
+        <div class="marker"></div>
+        <div class="wheel" id="wheel">
+            <div class="wheel-overlay"></div>
+            </div>
+    </div>
+
+    <script>
+        const wheel = document.getElementById('wheel');
+        const input = document.getElementById('textInput');
+        const root = document.querySelector(':root');
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        let currentAngle = 0;
+        let elements = [];
+        let lastWinner = "";
+
+        // Style Listeners
+        document.getElementById('wheelColor').addEventListener('input', (e) => root.style.setProperty('--wheel-color', e.target.value));
+        document.getElementById('textColor').addEventListener('input', (e) => root.style.setProperty('--text-color', e.target.value));
+        document.getElementById('sizeInput').addEventListener('input', (e) => root.style.setProperty('--wheel-size', e.target.value + 'px'));
+        
+        // Background Wallpaper Upload
+        document.getElementById('bgInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => document.body.style.backgroundImage = `url('${ev.target.result}')`;
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Wheel Image Center Upload
+        document.getElementById('wheelImgInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => wheel.style.backgroundImage = `url('${ev.target.result}')`;
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function playTick() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function updateWheel() {
+            elements = input.value.split('\n').map(n => n.trim()).filter(n => n !== "");
+            document.getElementById('counter').innerText = `Total: ${elements.length}`;
+            
+            // Clear current wheel entries but keep the overlay
+            const overlay = wheel.querySelector('.wheel-overlay');
+            wheel.innerHTML = '';
+            wheel.appendChild(overlay);
+
+            const total = elements.length;
+            if (total === 0) return;
+
+            elements.forEach((text, i) => {
+                const angle = (360 / total) * i;
+                
+                // Dividers
+                const line = document.createElement('div');
+                line.className = 'divider';
+                line.style.transform = `rotate(${angle - (180/total)}deg)`;
+                wheel.appendChild(line);
+
+                // Entries
+                const div = document.createElement('div');
+                div.className = 'entry';
+                div.style.transform = `rotate(${angle}deg)`;
+                div.innerText = text;
+                
+                // Adaptive font size
+                let size = total > 20 ? (total > 100 ? 6 : 10) : 14;
+                div.style.fontSize = size + 'px';
+                wheel.appendChild(div);
+            });
+        }
+
+        function spinWheel() {
+            if (elements.length === 0) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const spins = 10 + Math.random() * 5; 
+            const extra = Math.floor(Math.random() * 360);
+            const totalRotation = spins * 360 + extra;
+            
+            currentAngle += totalRotation;
+            wheel.style.transform = `rotate(${-currentAngle}deg)`;
+
+            const totalTicks = Math.floor((totalRotation / 360) * elements.length);
+            let ticksDone = 0;
+            
+            function runTicks() {
+                if (ticksDone < totalTicks) {
+                    playTick();
+                    ticksDone++;
+                    const progress = ticksDone / totalTicks;
+                    const delay = 25 + (progress * progress * 600); 
+                    setTimeout(runTicks, delay);
+                }
+            }
+            runTicks();
+
+            setTimeout(() => {
+                const finalAngle = currentAngle % 360;
+                const winnerIndex = Math.floor((finalAngle / 360) * elements.length);
+                lastWinner = elements[winnerIndex];
+                showWinner(lastWinner);
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+            }, 5000);
+        }
+
+        function showWinner(name) {
+            document.getElementById('winnerName').innerText = name;
+            document.getElementById('winnerModal').classList.add('show');
+        }
+
+        function removeWinner() {
+            const filteredElements = elements.filter(item => item !== lastWinner);
+            input.value = filteredElements.join('\n');
+            updateWheel();
+            closeModal();
+        }
+
+        function closeModal() {
+            document.getElementById('winnerModal').classList.remove('show');
+        }
+
+        updateWheel();
+    </script>
+</body>
+</html>
